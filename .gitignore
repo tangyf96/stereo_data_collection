@@ -1,0 +1,5 @@
+*.avi
+*.jpg
+*.bag
+build/
+.vscode/

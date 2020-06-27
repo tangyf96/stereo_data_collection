@@ -1,0 +1,4 @@
+Homography transformation matrix from left camera to right camera
+[[ 1.00476859e+00 -3.45690534e-02 -2.62218249e+01]
+ [ 3.57667123e-02  9.92150127e-01 -4.21958744e+00]
+ [ 1.06401679e-04 -8.28318658e-05  1.00000000e+00]]
