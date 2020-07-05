@@ -36,9 +36,9 @@ int main(int argc, char *argv[]) {
     std::string file_name1 = "ref.avi";
     std::string file_name2 = "left_trans.avi";
 
-    VideoWriter video_right(file_name1, CV_FOURCC('M','J','P','G'),10, Size(640,400)); 
-    VideoWriter video_left_trans(file_name2,CV_FOURCC('M','J','P','G'),10, Size(640,400)); 
-
+    VideoWriter video_right(file_name1, CV_FOURCC('M','J','P','G'),30, Size(640,400)); 
+    VideoWriter video_left_trans(file_name2,CV_FOURCC('M','J','P','G'),30, Size(640,400)); 
+    VideoWriter video_left("left.avi", CV_FOURCC('M','J','P','G'),30, Size(640,400)); 
 
     std::cout << "Press 's' to start record video." << std::endl;
     bool flag_start = false;
@@ -65,6 +65,7 @@ int main(int argc, char *argv[]) {
                 if (count++ == 0)
                     std::cout << "Start To Record Video!!!" << std::endl;
                 video_right.write(right_data.frame);
+                video_left.write(left_data.frame);
                 video_left_trans.write(left_trans);
             }
         }
@@ -75,6 +76,11 @@ int main(int argc, char *argv[]) {
         } 
         else if (key == 32 || key == 's' || key == 'S')
             flag_start = true;
+        else if ((key == 32 || key == 's' || key == 'S') && (flag_start == true))
+        {
+            flag_start = false;
+            break;
+        }
             /*
             if (!left_data.frame.empty()
                 && !right_data.frame.empty()) {
@@ -95,7 +101,8 @@ int main(int argc, char *argv[]) {
     
     api->Stop(Source::VIDEO_STREAMING);
     video_right.release();
-    video_left_trans.release();
+    video_left_trans.release(); 
+    video_left.release();
     destroyAllWindows();
     return 0;
 

@@ -53,6 +53,6 @@ include_directories(
 )
 
 ## mynteye_demo
-
+add_compile_options(-std=c++11 -pthread -g)
 add_executable(CollectData src/get_video.cpp)
 target_link_libraries(CollectData mynteye ${OpenCV_LIBS})
