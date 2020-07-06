@@ -89,40 +89,44 @@ def cut_video(clear_video_name, shadow_video_name):
     # point_right_up = H_matrix.dot(np.array([refPt[1][0], refPt[0][1], 1.0]).transpose())
     # point_right_down = H_matrix.dot(np.array([refPt[1][0], refPt[1][1], 1.0]).transpose())
 
-    # 展示区域内的image，并且同时确定起点和终点
-     
-    cut_video_flag = False
-    fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
-    width = refPt[1][0] - refPt[0][0]
-    height = refPt[1][1] - refPt[0][1]
-    print("width:{}, height:{}".format(width, height))
 
-    shadow_out = cv2.VideoWriter(os.path.dirname(clear_video_name)+"/shadow_original_cut.avi",fourcc,int(fps),(width, height,3))
-    clear_out = cv2.VideoWriter(os.path.dirname(clear_video_name)+"/clear_cut.avi",fourcc,int(fps),(width, height,3))
-    # trans_out = cv2.VideoWriter(os.path.dirname(clear_video_name)+"/shadow_cut.avi", fourcc,fps,(frame_transform[0].shape[1], frame_transform[0].shape[1]) )
+    # 展示区域内的image，并且同时确定起点和终点     
+    cut_video_flag = False
+    print("original image shape:({}, {})".format(frame_clear[0].shape[0], frame_clear[0].shape))
+    image_width = frame_clear[0].shape[1]
+    image_height = frame_clear[0].shape[0]
+    # 防止越界
+    start_x = refPt[0][0]
+    start_y = refPt[0][1]
+    if refPt[1][0] >= image_width:
+        end_x = image_width
+    else:
+        end_x = refPt[1][0] + 1
+
+    if refPt[1][1] >= image_height:
+        end_y = image_height
+    else:
+        end_y = refPt[1][1] + 1
+
     for i in range(len(frame_clear)):
-        clear_image = frame_clear[i][refPt[0][1]:refPt[1][1], refPt[0][0]:refPt[1][0]]
-        shadow_image = frame_shadow[i][refPt[0][1]:refPt[1][1], refPt[0][0]:refPt[1][0]]
+        clear_image = frame_clear[i][start_x:end_x, start_y:end_y]
+        shadow_image = frame_shadow[i][start_x:end_x, start_y:end_y]
         img = cv2.hconcat([clear_image, shadow_image])
-        cv2.imshow('frame', img)
-        time.sleep(0.2)
+        cv2.imshow('clear_frame', img)
+        cv2.imshow('shadow_frame', shadow_image)
         key = cv2.waitKey(1) & 0xFF
         if key == ord('s') or key == ord('S') and cut_video_flag == False:
             print("Start to cut video idx:{}".format(i))
-            cut_video_flag == True
+            cut_video_flag = True
         elif key == ord('q') or key == ord('Q') and cut_video_flag == True:
             break
 
         if cut_video_flag:
     #         # save video
-            shadow_out.write(shadow_image)
-            clear_out.write(clear_image)
-            # trans_out.write(frame_transform[i])
+            cv2.imwrite(os.path.dirname(clear_video_name) + "/clear/clear_" + str(i) + ".jpg", clear_image)
+            cv2.imwrite(os.path.dirname(shadow_video_name) + "/shadow/shadow_" + str(i) + ".jpg", shadow_image)
 
     refPt.clear()
-    # trans_out.release()
-    clear_out.release()
-    shadow_out.release()
 
 def read_single_video(file_name):
     cap = cv2.VideoCapture(file_name)
@@ -200,8 +204,11 @@ if __name__ == "__main__":
     #     shadow_file = file_base + "/" + motion_name[i] + "/shadow_original.avi"
     #     file_name.append((clear_file, shadow_file))
 
-    file_base = "/home/yifan/Documents/Research/ShadowData/medium_ssim/kick/1"
+    file_base = "/home/yifan/Documents/Research/ShadowData/medium_ssim"
+
     file_name = []
+    # add file names
+    
     file_name.append((file_base + "/left.avi", file_base + "/ref.avi"))
     cut_video(file_name[0][0], file_name[0][1])
 
