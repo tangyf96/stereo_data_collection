@@ -1,12 +1,11 @@
 import sys
-sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import os
 
 import time
 import cv2
 import scipy
 import numpy as np
-from skimage.metrics import structural_similarity as ssim
+# from skimage.metrics import structural_similarity as ssim
 
 
 def cal_ssim(img1, img2, win_size=11, sigma=1.5):
@@ -46,10 +45,10 @@ def cut_video(clear_video_name, shadow_video_name):
                         [1.06401679e-04, -8.28318658e-05, 1.0]])
     ### 裁剪原始的video data ###
     frame_clear, frame_shadow = read_video(clear_video_name, shadow_video_name)
+    assert len(frame_shadow) == len(frame_clear)
 
-    transform_video_name = os.path.dirname(clear_video_name) + "/left_trans.avi"
-    frame_transform = read_single_video(transform_video_name)
-    assert len(frame_transform) == len(frame_clear)
+    # transform_video_name = os.path.dirname(clear_video_name) + "/left_trans.avi"
+    # frame_transform = read_single_video(transform_video_name)
 
     cap = cv2.VideoCapture(clear_video_name)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -195,6 +194,7 @@ def estimate_video_ssim(file_name):
     print("Total average ssim is:{}".format(total_ssim))
     return cur_ssim
 
+
 if __name__ == "__main__":
     #### Read files ####
     # motion_name = ['clap_hands', 'jump', 'lunge', 'stretch', 'wave']
@@ -204,11 +204,33 @@ if __name__ == "__main__":
     #     shadow_file = file_base + "/" + motion_name[i] + "/shadow_original.avi"
     #     file_name.append((clear_file, shadow_file))
 
-    file_base = "/home/yifan/Documents/Research/ShadowData/medium_ssim"
+    file_base = "/media/tangyifan/document/Research/ShadowData/medium_ssim"
 
     file_name = []
-    # add file names
+    for root, dirs, files in os.walk(file_base):
+        if len(dirs) == 0 and len(files) != 0:
+            file_pairs = [root+"/"+f for f in files]
+            file_name.append(file_pairs)
+            for i in range(len(file_pairs)):
+                print(file_pairs[i])
     
-    file_name.append((file_base + "/left.avi", file_base + "/ref.avi"))
-    cut_video(file_name[0][0], file_name[0][1])
+    # for file_pairs in file_name:
+    #     # Create folders
+    #     path = os.path.dirname(file_pairs[0])
+    #     isExists=os.path.exists(path+"/clear")
+    #     if not isExists:
+    #         os.makedirs(path+"/clear")
+        
+    #     if not os.path.exists(path+"/shadow"):
+    #         os.makedirs(path+"/shadow")
 
+    #     for path in file_pairs:
+    #         if "left.avi" in path:
+    #             shadow_name = path
+    #         elif "ref.avi" in path:
+    #             clear_name = path
+    #     cut_video(clear_video_name=clear_name, shadow_video_name=shadow_name)
+
+    clear_video_name = "/media/tangyifan/document/Research/ShadowData/medium_ssim/clap_hands/2/ref_out.avi"
+    shadow_video_name = "/media/tangyifan/document/Research/ShadowData/medium_ssim/clap_hands/2/left_out.avi"
+    cut_video(clear_video_name, shadow_video_name)
