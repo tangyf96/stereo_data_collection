@@ -5,6 +5,7 @@ import time
 import cv2
 import scipy
 import numpy as np
+
 # from skimage.metrics import structural_similarity as ssim
 
 
@@ -29,13 +30,13 @@ def click_and_crop(event, x, y, flags, param):
 	# (x, y) coordinates and indicate that cropping is being
 	# performed
 	if event == cv2.EVENT_LBUTTONDOWN:
-		refPt = [(x, y)]
+		refPt = [x]
 		cropping = True
 	# check to see if the left mouse button was released
 	elif event == cv2.EVENT_LBUTTONUP:
 		# record the ending (x, y) coordinates and indicate that
 		# the cropping operation is finished
-		refPt.append((x, y))
+		refPt.append(x)
 		cropping = False
 
 def cut_video(clear_video_name, shadow_video_name):
@@ -44,9 +45,9 @@ def cut_video(clear_video_name, shadow_video_name):
                         [3.57667123e-02, 9.92150127e-01,-4.21958744e+00],
                         [1.06401679e-04, -8.28318658e-05, 1.0]])
     ### 裁剪原始的video data ###
-    frame_clear, frame_shadow = read_video(clear_video_name, shadow_video_name)
-    assert len(frame_shadow) == len(frame_clear)
-
+    frame_clear, frame_shadow, status = read_video(clear_video_name, shadow_video_name)
+    if status == False:
+        return False
     # transform_video_name = os.path.dirname(clear_video_name) + "/left_trans.avi"
     # frame_transform = read_single_video(transform_video_name)
 
@@ -54,7 +55,7 @@ def cut_video(clear_video_name, shadow_video_name):
     fps = cap.get(cv2.CAP_PROP_FPS)
 
     # 先确定区域
-    image = frame_shadow[0]
+    image = frame_clear[0]
     clone = image.copy()
     cv2.namedWindow("image")
     cv2.setMouseCallback("image", click_and_crop)
@@ -69,12 +70,23 @@ def cut_video(clear_video_name, shadow_video_name):
         # if the 'c' key is pressed, break from the loop
         elif key == ord("c"):
             break
-    cv2.rectangle(image, refPt[0], refPt[1], (0, 255, 0), 2)
+    cv2.rectangle(image, (refPt[0], 400), (refPt[1], 400), (0, 255, 0), 2)
     cv2.imshow("image", image)
 
+    # 保证是width = 400
+    if abs(refPt[1] - refPt[0]) < 400:
+        diff = (400 - (refPt[1] - refPt[0]))//2
+        refPt[0] -= diff
+        refPt[1] = refPt[0] + 400
+    else:
+        diff = ((refPt[1] - refPt[0]) - 400)//2
+        refPt[0] += diff
+        refPt[1] = refPt[0] + 400
+
     if len(refPt) == 2:
-        roi = clone[refPt[0][1]:refPt[1][1], refPt[0][0]:refPt[1][0]]
-        print("ROI is:({}, {}) to ({}, {})".format(refPt[0][0], refPt[0][1], refPt[1][0], refPt[1][1]))
+        roi = clone[:, refPt[0]:refPt[1]]
+        # roi = clone[refPt[0][1]:refPt[1][1], refPt[0][0]:refPt[1][0]]
+        print("ROI is:({}, {}) to ({}, {})".format(refPt[0], 0, refPt[1], 400))
         cv2.imshow("ROI", roi)
         while True:
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -95,25 +107,20 @@ def cut_video(clear_video_name, shadow_video_name):
     image_width = frame_clear[0].shape[1]
     image_height = frame_clear[0].shape[0]
     # 防止越界
-    start_x = refPt[0][0]
-    start_y = refPt[0][1]
-    if refPt[1][0] >= image_width:
-        end_x = image_width
-    else:
-        end_x = refPt[1][0] + 1
-
-    if refPt[1][1] >= image_height:
-        end_y = image_height
-    else:
-        end_y = refPt[1][1] + 1
+    start_x = refPt[0]
+    end_x = refPt[1]
 
     for i in range(len(frame_clear)):
-        clear_image = frame_clear[i][start_x:end_x, start_y:end_y]
-        shadow_image = frame_shadow[i][start_x:end_x, start_y:end_y]
+        clear_image = frame_clear[i][:, start_x:end_x]
+        shadow_image = frame_shadow[i][:, start_x:end_x]
         img = cv2.hconcat([clear_image, shadow_image])
         cv2.imshow('clear_frame', img)
         cv2.imshow('shadow_frame', shadow_image)
-        key = cv2.waitKey(1) & 0xFF
+        if not cut_video_flag:
+            key = cv2.waitKey(200) & 0xFF
+        else:
+            key = cv2.waitKey(1) & 0xFF
+
         if key == ord('s') or key == ord('S') and cut_video_flag == False:
             print("Start to cut video idx:{}".format(i))
             cut_video_flag = True
@@ -126,6 +133,8 @@ def cut_video(clear_video_name, shadow_video_name):
             cv2.imwrite(os.path.dirname(shadow_video_name) + "/shadow/shadow_" + str(i) + ".jpg", shadow_image)
 
     refPt.clear()
+    cv2.destroyAllWindows()
+    return True
 
 def read_single_video(file_name):
     cap = cv2.VideoCapture(file_name)
@@ -154,9 +163,9 @@ def read_video(clear_video_name, shadow_video_name):
         ret, frame = clear_video.read()
         if ret == True:
             frame_clear.append(frame)
-            # cv2.imshow('frame',frame)
-            # if cv2.waitKey(1) & 0xFF == ord('q'):
-            #     break
+            cv2.imshow('frame',frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
         else:
             break
     clear_video.release()
@@ -167,17 +176,20 @@ def read_video(clear_video_name, shadow_video_name):
         ret, frame = shadow_video.read()
         if ret == True:
             frame_shadow.append(frame)
-            # cv2.imshow('frame',frame)
-            # if cv2.waitKey(1) & 0xFF == ord('q'):
-            #     break
+            cv2.imshow('frame',frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
         else:
             break
     shadow_video.release()
     cv2.destroyAllWindows()
     # return all frames
-    assert len(frame_shadow) == len(frame_clear) and len(frame_shadow) > 0
+    if not (len(frame_shadow) == len(frame_clear) and len(frame_shadow) > 0):
+        status = False
+    else:
+        status = True
     
-    return frame_clear, frame_shadow
+    return frame_clear, frame_shadow, status
 
 def estimate_video_ssim(file_name):
     #### calculate ssim  ####
@@ -204,33 +216,42 @@ if __name__ == "__main__":
     #     shadow_file = file_base + "/" + motion_name[i] + "/shadow_original.avi"
     #     file_name.append((clear_file, shadow_file))
 
-    file_base = "/media/tangyifan/document/Research/ShadowData/medium_ssim"
+    file_base = "/media/tyf/software/ShadowData/medium_ssim"
 
-    file_name = []
-    for root, dirs, files in os.walk(file_base):
-        if len(dirs) == 0 and len(files) != 0:
-            file_pairs = [root+"/"+f for f in files]
-            file_name.append(file_pairs)
-            for i in range(len(file_pairs)):
-                print(file_pairs[i])
+    # file_name = []
+    # for root, dirs, files in os.walk(file_base):
+    #     if len(dirs) == 0 and len(files) != 0:
+    #         file_pairs = [root+"/"+f for f in files if ".avi" in f]
+    #         if len(file_pairs) == 0:
+    #             continue
+    #         file_name.append(file_pairs)
+    #         for i in range(len(file_pairs)):
+    #             print(file_pairs[i])
     
-    # for file_pairs in file_name:
-    #     # Create folders
-    #     path = os.path.dirname(file_pairs[0])
-    #     isExists=os.path.exists(path+"/clear")
-    #     if not isExists:
-    #         os.makedirs(path+"/clear")
+    failed_list = []
+    file_name = []
+    file_name.append(("/media/tyf/software/ShadowData/medium_ssim/squat/2/ref_out.avi", "/media/tyf/software/ShadowData/medium_ssim/squat/2/left_out.avi"))
+    for file_pairs in file_name:
+        # Create folders
+        path = os.path.dirname(file_pairs[0])
+        isExists=os.path.exists(path+"/clear")
+        if not isExists:
+            os.makedirs(path+"/clear")
         
-    #     if not os.path.exists(path+"/shadow"):
-    #         os.makedirs(path+"/shadow")
+        if not os.path.exists(path+"/shadow"):
+            os.makedirs(path+"/shadow")
 
-    #     for path in file_pairs:
-    #         if "left.avi" in path:
-    #             shadow_name = path
-    #         elif "ref.avi" in path:
-    #             clear_name = path
-    #     cut_video(clear_video_name=clear_name, shadow_video_name=shadow_name)
+        for path in file_pairs:
+            if "left_out.avi" in path:
+                shadow_name = path
+            elif "ref_out.avi" in path:
+                clear_name = path
+        status = cut_video(clear_video_name=clear_name, shadow_video_name=shadow_name)
+        if not status:
+            failed_list.append((clear_name, shadow_name))
 
-    clear_video_name = "/media/tangyifan/document/Research/ShadowData/medium_ssim/clap_hands/2/ref_out.avi"
-    shadow_video_name = "/media/tangyifan/document/Research/ShadowData/medium_ssim/clap_hands/2/left_out.avi"
-    cut_video(clear_video_name, shadow_video_name)
+    print(failed_list)
+
+    # clear_video_name = "/media/tyf/software/ShadowData/medium_ssim/clap_hands/2/ref_out.avi"
+    # shadow_video_name = "/media/tyf/software/ShadowData/medium_ssim/clap_hands/2/left_out.avi"
+    # cut_video(clear_video_name, shadow_video_name)
